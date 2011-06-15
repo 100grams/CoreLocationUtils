@@ -62,6 +62,7 @@ typedef struct {
 @interface CLLocation (measuring)
 
 // returns the 'great-circle' distance using haversine forumla (complements the built-in distanceFromLocation:)
++ (CLLocationDistance) distanceFromCoordinate:(CLLocationCoordinate2D)fromCoord toCoordinate:(CLLocationCoordinate2D) toCoord;
 - (CLLocationDistance) distanceFromCoordinate:(CLLocationCoordinate2D) toCoord;
 
 // returns the (2D) minimum distance from a line which connects two other locations. The projected location on that line is returned in intersection param. 
@@ -70,8 +71,11 @@ typedef struct {
 // returns the direction in degrees from one coordinate to another
 - (CLLocationDirection)directionToLocation:(CLLocation*)location;
 
-// returns the bounding box of a circle defined by centerCoordinate and radius
+// returns the bounding box of a circle defined by centerCoordinate and radius in meters
 + (CLCoordinateRect) boundingBoxWithCenter: (CLLocationCoordinate2D)centerCoordinate radius:(CLLocationDistance)radius;
+
+// returns the bounding box which contains all CLLocations in locations array
++ (CLCoordinateRect) boundingBoxContainingLocations: (NSArray*)locations;
 
 // checks if coordinate is valid and non-zero
 + (BOOL) isCoordinateValidNonZero : (CLLocationCoordinate2D) coord;

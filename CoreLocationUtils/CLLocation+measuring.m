@@ -32,6 +32,11 @@
 
 @implementation CLLocation(measuring)
 
++ (CLLocationDistance) distanceFromCoordinate:(CLLocationCoordinate2D)fromCoord toCoordinate:(CLLocationCoordinate2D) toCoord
+{
+    CLLocation *location = [[[CLLocation alloc] initWithLatitude:fromCoord.latitude longitude:fromCoord.longitude] autorelease];
+    return [location distanceFromCoordinate:toCoord];
+}
 
 - (CLLocationDistance) distanceFromCoordinate:(CLLocationCoordinate2D) fromCoord;
 {
@@ -56,10 +61,10 @@
 + (CLCoordinateRect) boundingBoxWithCenter: (CLLocationCoordinate2D)centerCoordinate radius:(CLLocationDistance)radius;
 {
 	CLCoordinateRect result; 
-	double earthRadius = 6371.01;
+	double earthRadius = 6371.01 * 1000.0; //in meters
 	
 	// angular distance in radians on a great circle
-	double radDist = radius / earthRadius;
+	double radDist = radius/ earthRadius;
 	double radLat = centerCoordinate.latitude * kDegreesToRadians; 
 	double radLon = centerCoordinate.longitude * kDegreesToRadians; 
 	
@@ -81,13 +86,37 @@
 		maxLon = M_PI;
 	}
 	
-	result.topLeft.latitude = minLat * kRadiansToDegrees;
+	result.bottomRight.latitude = minLat * kRadiansToDegrees;
 	result.topLeft.longitude = minLon  * kRadiansToDegrees;
-	result.bottomRight.latitude = maxLat  * kRadiansToDegrees;
+	result.topLeft.latitude = maxLat  * kRadiansToDegrees;
 	result.bottomRight.longitude = maxLon  * kRadiansToDegrees;
     
 	return result; 
 }
+
+
++ (CLCoordinateRect) boundingBoxContainingLocations: (NSArray*)locations;
+{
+	CLCoordinateRect result; 
+    
+    if ([locations count] == 0) {
+        return result;
+    }
+    
+    result.topLeft = ((CLLocation*)[locations objectAtIndex:0]).coordinate;
+    result.bottomRight = result.topLeft;
+       
+    for (int i=1; i<[locations count]; i++) {
+        CLLocationCoordinate2D coord = ((CLLocation*)[locations objectAtIndex:i]).coordinate;
+        result.topLeft.latitude = MAX(result.topLeft.latitude, coord.latitude);
+        result.topLeft.longitude = MIN(result.topLeft.longitude, coord.longitude);
+        result.bottomRight.latitude = MIN(result.bottomRight.latitude, coord.latitude);
+        result.bottomRight.longitude = MAX(result.bottomRight.longitude, coord.longitude);
+    }
+    
+    return result;
+}
+
 
 //returns a direction (in radians) between an origin (from) coordinate and a destination (to) coordinate 
 - (CLLocationDirection)directionToLocation:(CLLocation*)location;
