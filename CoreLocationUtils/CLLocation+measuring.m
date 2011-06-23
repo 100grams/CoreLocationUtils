@@ -58,6 +58,36 @@
 }
 
 
+- (CLLocationSpeed) speedTravelledFromLocation:(CLLocation*)fromLocation;
+{
+    NSTimeInterval tInterval = [self.timestamp timeIntervalSinceDate:fromLocation.timestamp];
+    double distance = [self distanceFromLocation:fromLocation];
+    double speed = (distance / tInterval);
+    return speed;
+}
+
+
+- (CLLocation*) newLocationAfterMovingAtSpeed:(CLLocationSpeed)speed duration:(NSTimeInterval)duration direction:(CLLocationDirection)direction;
+{
+	double earthRadius = 6371.01; // Earth's radius in Kilometers
+    double lat1 = self.coordinate.latitude * kDegreesToRadians;
+    double lon1 = self.coordinate.longitude  * kDegreesToRadians;
+    double dRad = direction * kDegreesToRadians;
+    
+    double nD = speed * duration / 1000; //distance travelled in km
+    double nC = nD / earthRadius;
+    double nA = acos(cos(nC)*cos(M_PI/2 - lat1) + sin(M_PI/2 - lat1)*sin(nC)*cos(dRad));
+    double dLon = asin(sin(nC)*sin(dRad)/sin(nA));
+    
+    double lat2 = (M_PI/2 - nA) * kRadiansToDegrees;
+    double lon2 = (dLon + lon1) * kRadiansToDegrees;
+    CLLocationCoordinate2D coord = CLLocationCoordinate2DMake(lat2, lon2);
+    
+    NSDate *projectedTimeStamp = [NSDate dateWithTimeInterval:duration sinceDate:self.timestamp];
+    return [[CLLocation alloc] initWithCoordinate:coord altitude:self.altitude horizontalAccuracy:self.horizontalAccuracy verticalAccuracy:self.verticalAccuracy course:direction speed:speed timestamp:projectedTimeStamp];
+    
+}
+
 + (CLCoordinateRect) boundingBoxWithCenter: (CLLocationCoordinate2D)centerCoordinate radius:(CLLocationDistance)radius;
 {
 	CLCoordinateRect result; 
@@ -118,22 +148,35 @@
 }
 
 
-//returns a direction (in radians) between an origin (from) coordinate and a destination (to) coordinate 
+//returns a direction (in degrees) between the receiver and the given location 
 - (CLLocationDirection)directionToLocation:(CLLocation*)location;
+{    
+    return [CLLocation directionFromCoordinate:self.coordinate toCoordinate:location.coordinate];
+    
+}
+
+//returns a direction (in degrees) between an origin (from) coordinate and a destination (to) coordinate 
++ (CLLocationDirection) directionFromCoordinate:(CLLocationCoordinate2D)fromCoord toCoordinate:(CLLocationCoordinate2D) toCoord;
 {	
 	//double tc1; //angle between current location and target location
 	//double dlat = location.coordinate.latitude - currLocation.coordinate.latitude;
 	//convert to radians
-	double fromLong = self.coordinate.longitude * kDegreesToRadians;
-	double toLong = location.coordinate.longitude * kDegreesToRadians;
-	double fromLat = self.coordinate.latitude * kDegreesToRadians;
-	double toLat = location.coordinate.latitude * kDegreesToRadians;
+	double fromLong = fromCoord.longitude * kDegreesToRadians;
+	double toLong = toCoord.longitude * kDegreesToRadians;
+	double fromLat = fromCoord.latitude * kDegreesToRadians;
+	double toLat = toCoord.latitude * kDegreesToRadians;
 	
 	double dlon = toLong - fromLong; 
 	double y = sin(dlon)*cos(toLat);
 	double x = cos(fromLat)*sin(toLat)-sin(fromLat)*cos(toLat)*cos(dlon);
 	
-	return atan2(y,x);
+	double direction = atan2(y,x);
+    
+    if (direction<0) {
+        direction += 2 * M_PI; //return a positive direction
+    }
+    
+    return direction * kRadiansToDegrees;
 	
 }
 

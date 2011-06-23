@@ -68,8 +68,13 @@ typedef struct {
 // returns the (2D) minimum distance from a line which connects two other locations. The projected location on that line is returned in intersection param. 
 - (CLLocationDistance) distanceFromLineWithStartLocation:(CLLocation*) start endLocation:(CLLocation*) end intersection : (CLLocation**) intersection;
 
-// returns the direction in degrees from one coordinate to another
+//returns a direction (in degrees) between the receiver and the given location 
 - (CLLocationDirection)directionToLocation:(CLLocation*)location;
+//returns a direction (in degrees) between an origin (from) coordinate and a destination (to) coordinate 
++ (CLLocationDirection) directionFromCoordinate:(CLLocationCoordinate2D)fromCoord toCoordinate:(CLLocationCoordinate2D) toCoord;
+
+// returns the speed calculated from the distance and time deltas between self and fromLocation 
+- (CLLocationSpeed) speedTravelledFromLocation:(CLLocation*)fromLocation;
 
 // returns the bounding box of a circle defined by centerCoordinate and radius in meters
 + (CLCoordinateRect) boundingBoxWithCenter: (CLLocationCoordinate2D)centerCoordinate radius:(CLLocationDistance)radius;
@@ -79,6 +84,9 @@ typedef struct {
 
 // checks if coordinate is valid and non-zero
 + (BOOL) isCoordinateValidNonZero : (CLLocationCoordinate2D) coord;
+
+// returns a new location that will be reached after travelling from self location at 'speed' for 'duration' in 'direction'.
+- (CLLocation*) newLocationAfterMovingAtSpeed:(CLLocationSpeed)speed duration:(NSTimeInterval)duration direction:(CLLocationDirection)direction;
 
 
 @end

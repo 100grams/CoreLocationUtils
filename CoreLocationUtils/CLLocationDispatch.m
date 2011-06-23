@@ -25,7 +25,8 @@
 //
 
 #import "CLLocationDispatch.h"
-
+#import "CLLocation+measuring.h"
+#import "CLLocationDeadReckoning.h"
 
 @implementation CLLocationDispatch
 
@@ -56,9 +57,13 @@
     self = [super init];
     if (self) {
         _locationManager = [[CLLocationManager alloc] init];
+
+        // set app-specific locationManager properties
         _locationManager.desiredAccuracy = kCLLocationAccuracyBest;
         _locationManager.headingFilter = kCLHeadingFilterNone;
-        _locationManager.delegate = self;   
+        _locationManager.delegate = self;
+        
+        _locationManager.purpose = NSLocalizedStringWithDefaultValue(@"LocationManagerPurpose", nil, [NSBundle mainBundle], @"Indicate to the user why your app needs to use location services.", @"LocationManager purpose");
         
         _listeners = [[NSMutableArray alloc] initWithCapacity:0];        
     }
@@ -86,13 +91,26 @@
 
 - (void) start
 {
-    if (!self.isRunningDemo) {
+    BOOL enabled = [CLLocationManager locationServicesEnabled];
+    //BOOL significant = [CLLocationManager significantLocationChangeMonitoringAvailable];
+    BOOL authorized = YES;
+    NSString *reqSysVer = @"4.2";
+    NSString *currSysVer = [[UIDevice currentDevice] systemVersion];
+    if ([currSysVer compare:reqSysVer options:NSNumericSearch] != NSOrderedAscending){
+        authorized = ([CLLocationManager authorizationStatus] == kCLAuthorizationStatusAuthorized);
+    }
+
+    if (!self.isRunningDemo && enabled && authorized) {
         [_locationManager startUpdatingLocation];
-        [_locationManager startUpdatingHeading];    
+        [_locationManager startUpdatingHeading]; 
     }
     else{
         NSLog(@"Warning: attempt to start real location updates while demo is running has been ignored. Please stop the demo first.");
     }
+    
+    // to support DR
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(deadReckoningNewLocation:) name:kNotificationNewDRLocation object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(deadReckoningDidStop:) name:kNotificationStoppedDR object:nil];
 }
 
 - (void) stop
@@ -129,35 +147,56 @@
 
 - (void)locationManager:(CLLocationManager *)manager didUpdateToLocation:(CLLocation *)newLocation fromLocation:(CLLocation *)oldLocation
 {
-    if (self.logLocationData && !self.isRunningDemo) { //avoid logging while reading locations from the log file
-        // archive the location
+    // cache & log the new location if we're not running a demo 
+    if (self.logLocationData && !self.isRunningDemo) {
+        // create locations cache
         if (!_locations) {
-            _locations = [[NSMutableArray alloc] initWithCapacity:512];
+            _locations = [[NSMutableArray alloc] initWithCapacity:256];
         }
+        // empty cache if it is full
+        if ([_locations count] > kMaxCachedLocations) {
+            NSRange range; range.location = [_locations count] - 10; range.length = 10;
+            NSIndexSet *set = [NSIndexSet indexSetWithIndexesInRange:range];
+            NSArray *lastLocations = [_locations objectsAtIndexes:set];
+            [_locations removeAllObjects];
+            [_locations addObjectsFromArray:lastLocations]; 
+        }
+        // add the new location to the cache
         [_locations addObject:newLocation];
+        // create log file name
         if (!_logFileName) {
             _logFileName = [[[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0] stringByAppendingPathComponent:@"locations.archive"] retain];
         }
+        //archive the locations cache
         [NSKeyedArchiver archiveRootObject:_locations toFile:_logFileName];
 
-//        NSData *logData = [[NSString stringWithFormat:@"%@", newLocation] dataUsingEncoding:NSUTF8StringEncoding];
-//        NSFileHandle *fHandle = [NSFileHandle fileHandleForWritingAtPath:_logFileName];
-//        [fHandle seekToEndOfFile];
-//        [fHandle writeData:logData];
-//        [fHandle closeFile];
+
     }
     
     [_oldLocation release];
     _oldLocation = [oldLocation retain];
+    
+    // verify newLocation has speed and course info, required for supporting dead-reckoning.
+    CLLocationSpeed speed = newLocation.speed;
+    if (speed <= 0 && self.oldLocation) {
+        speed = [newLocation speedTravelledFromLocation:self.oldLocation];            
+    }
+    CLLocationDirection course = newLocation.course;
+    if (course <= 0 && self.oldLocation) {
+        course = [self.oldLocation directionToLocation:newLocation];
+    }
     [_newLocation release];
-    _newLocation = [newLocation retain];
+    _newLocation = [[CLLocation alloc] initWithCoordinate:newLocation.coordinate altitude:newLocation.altitude horizontalAccuracy:newLocation.horizontalAccuracy verticalAccuracy:newLocation.verticalAccuracy course:course speed:speed timestamp:newLocation.timestamp];
+
+    //NSLog(@"new location: %@", self.newLocation);
     
     [_listeners enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
         id<CLLocationManagerDelegate> listener = obj;
         if ([listener respondsToSelector:@selector(locationManager:didUpdateToLocation:fromLocation:)]) {
-            [listener locationManager:manager didUpdateToLocation:newLocation fromLocation:oldLocation];
+            [listener locationManager:manager didUpdateToLocation:_newLocation fromLocation:_oldLocation];
         }
     }];
+    
 }
 
 - (void)locationManager:(CLLocationManager *)manager didUpdateHeading:(CLHeading *)newHeading
@@ -185,6 +224,28 @@
   
 }
 
+#pragma mark - Dispatching Dead Reckoning Locations
+
+- (void) deadReckoningNewLocation:(NSNotification*)notification
+{
+    [_listeners enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+        if ([obj respondsToSelector:@selector(deadReckoning:didGenerateLocation:)]) {
+            CLLocationDeadReckoning *drManager = [notification object];
+            [obj deadReckoning:drManager didGenerateLocation:[drManager.drLocations lastObject]];
+        }
+    }];
+
+}
+
+- (void) deadReckoningDidStop:(NSNotification*)notification
+{
+    [_listeners enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+        if ([obj respondsToSelector:@selector(deadReckoningDidStop:)]) {
+            CLLocationDeadReckoning *drManager = [notification object];
+            [obj deadReckoningDidStop:drManager];
+        }
+    }];    
+}
 
 #pragma mark - Route Demo
 
@@ -225,22 +286,47 @@
     [_locations release];
     _locations = [NSKeyedUnarchiver unarchiveObjectWithFile:logFileName];
     NSDate *logStartDate = ((CLLocation*)[_locations objectAtIndex:_startIndexForPlayingLog]).timestamp;
-    for (int i=_startIndexForPlayingLog; i<[_locations count]; i++) {
-        [_newLocation release];
-        _newLocation = [[_locations objectAtIndex:i] retain];
-        NSDate *refDate = _oldLocation?_oldLocation.timestamp:logStartDate;
-        NSUInteger secs = [_newLocation.timestamp timeIntervalSinceDate : refDate];
-        sleep(secs);
-        [self performSelectorOnMainThread:@selector(dispatchLocationUpdateOnMainThread) withObject:nil waitUntilDone:YES];
-        [_oldLocation release];
-        _oldLocation = [_newLocation retain];
+    playLogStartDate = [NSDate dateWithTimeIntervalSinceNow:0];
+    NSTimeInterval elapsedTime, prevElapsedTime=0;
+    NSInteger count = [_locations count] - _startIndexForPlayingLog;
+    for (int i=0; i<count; i++) {
+        
+        // calc the time to sleep until the next location update
+        NSInteger index = i+_startIndexForPlayingLog;
+        CLLocation *location = [_locations objectAtIndex:index];
+        CLLocation *nextLocation = i<count-1?[_locations objectAtIndex:index+1]:nil;
+        elapsedTime = [nextLocation.timestamp timeIntervalSinceDate:logStartDate];
+        NSTimeInterval secs = elapsedTime - prevElapsedTime;
+        prevElapsedTime = elapsedTime;
+        
+        // set location's timestamp to now (as in real-time location updates). This is required to keep all mechanisms 
+        // which may rely on the timestamp of the location to keep the same logic as in real-time location updates (e.g. dead reckoing). 
+        CLLocation *locationNow = [[[CLLocation alloc] initWithCoordinate:location.coordinate altitude:location.altitude horizontalAccuracy:location.horizontalAccuracy verticalAccuracy:location.verticalAccuracy course:location.course speed:location.speed timestamp:[NSDate dateWithTimeIntervalSinceNow:0]] autorelease];
+        [_locations removeObjectAtIndex:index];
+        [_locations insertObject:locationNow atIndex:index];
+        
+        // dispatch the new location at index i
+        [self performSelectorOnMainThread:@selector(dispatchLocationUpdateOnMainThread:) withObject:[NSNumber numberWithInt:i] waitUntilDone:YES];
+
+        // in case newLocation has been modified (speed/course), retain it. 
+        [_locations removeObjectAtIndex:index];
+        [_locations insertObject:_newLocation atIndex:index];
+        
+        // sleep
+        //NSLog(@"runDemoFromLogFile: going to sleep %f secs until next location update.", secs);
+        usleep(secs*1000000);
+        
     }
     [pool drain];
 }
 
-- (void) dispatchLocationUpdateOnMainThread 
+- (void) dispatchLocationUpdateOnMainThread:(NSNumber*)locationIndex
 {
-    [self locationManager:_locationManager didUpdateToLocation:self.newLocation fromLocation:self.oldLocation];    
+    NSInteger i = [locationIndex intValue];
+    NSInteger index = i+_startIndexForPlayingLog;
+    CLLocation *currLocation = [_locations objectAtIndex:index];
+    CLLocation *prevLocation = i>0?[_locations objectAtIndex:index-1]:nil;
+    [self locationManager:_locationManager didUpdateToLocation:currLocation fromLocation:prevLocation];    
 }
 
 

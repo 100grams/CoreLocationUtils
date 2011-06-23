@@ -27,7 +27,8 @@
 #import <Foundation/Foundation.h>
 #import <CoreLocation/CoreLocation.h>
 
-
+// max locations to cache in memory
+#define kMaxCachedLocations 512
 
 @protocol HGRouteProvider <NSObject>
 
@@ -57,6 +58,7 @@
     NSString *_logFileName;
     NSMutableArray *_locations;
     NSInteger _startIndexForPlayingLog;
+    NSDate* playLogStartDate;
 
 }
 
@@ -71,6 +73,7 @@
 @property (nonatomic, retain, readonly) CLLocation *oldLocation;
 @property (nonatomic, retain, readonly) CLLocation *newLocation;
 @property (nonatomic, retain, readonly) CLHeading *newHeading;
+
 
 // start/stop location and heading updates from CoreLocation
 - (void) start;
@@ -95,5 +98,8 @@
 @property (nonatomic, assign) BOOL logLocationData;
 // name of the locations archive file. If logLocationData is set to YES and this property has not been set, it defaults to ./Documents/locations.archive
 @property (nonatomic, retain) NSString *logFileName; 
+
+
+
 
 @end
