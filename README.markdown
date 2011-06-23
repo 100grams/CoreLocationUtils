@@ -1,12 +1,21 @@
 # Core Location Utilities#
 
-A library with some handy tools and extensions for iOS CoreLocation. 
- 
+An Objective-C library with tools and extensions for iOS CoreLocation. 
+
+## Features ##
+
+- Dispatching CoreLocation updates to multiple listeners.
+- Archive/Unarchive location data (play log file) 
+- Calculate Direction and distance between locations and routes.
+- Dead Reckoning
+
+
 ## Classes ##
 
 ### CLLocationDispatch 
 
 This is a central dispatch for distributing location updates to the app. Dispatched locations include: 
+
 - CoreLocation updates (location and heading)
 - Location data read from an archive (playing a log file)
 - Location data received from dead-reckoning service. 
