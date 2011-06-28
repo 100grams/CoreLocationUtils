@@ -27,8 +27,14 @@
 #import <Foundation/Foundation.h>
 #import <CoreLocation/CoreLocation.h>
 
-// max locations to cache in memory
-#define kMaxCachedLocations 512
+// max objects to cache in memory while logging. 
+// When this limit is reached, the cache is flushed into the log file, and the in-memory cache is emptied. 
+#define kLogCacheSize 512
+
+typedef enum{
+    kLocationsCache,
+    kHeadingsCache
+} CLLocationDispatchLogCacheType; 
 
 @protocol HGRouteProvider <NSObject>
 
@@ -54,9 +60,11 @@
     NSEnumerator *_locationEnumerator;
     BOOL _isRunningDemo;
     
-    // logging location data
-    NSString *_logFileName;
+    // logging location & heading data
+    NSString *_logFileNameLocations;
+    NSString *_logFileNameHeadings;
     NSMutableArray *_locations;
+    NSMutableArray *_headings;
     NSInteger _startIndexForPlayingLog;
     NSDate* playLogStartDate;
 
@@ -94,10 +102,16 @@
 - (void) addListener : (id<CLLocationManagerDelegate>) listener; 
 - (void) removeListener : (id<CLLocationManagerDelegate>) listener;
 
-// logging (archiving) locations to logFileName. Default is NO.
+// logging (archiving) locations to logFileNameLocations. Default is NO.
 @property (nonatomic, assign) BOOL logLocationData;
-// name of the locations archive file. If logLocationData is set to YES and this property has not been set, it defaults to ./Documents/locations.archive
-@property (nonatomic, retain) NSString *logFileName; 
+// logging (archiving) heading to logFileNameHeadings. Default is NO.
+@property (nonatomic, assign) BOOL logHeadingData;
+
+// archive file names. If logLocationData and/or logHeadingData is set to YES and this property has not been set, it defaults to ./Documents/locations.archive and/or ./Documents/headings.archive respectively.
+@property (nonatomic, retain) NSString *logFileNameLocations; 
+@property (nonatomic, retain) NSString *logFileNameHeadings; 
+
+- (void) flushLogCache:(CLLocationDispatchLogCacheType)cacheType; //use either kLocationsCache or kHeadingsCache
 
 
 

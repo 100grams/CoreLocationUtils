@@ -34,8 +34,9 @@
 @synthesize oldLocation=_oldLocation;
 @synthesize newLocation=_newLocation;
 @synthesize newHeading=_newHeading;
-@synthesize logLocationData; 
-@synthesize logFileName=_logFileName;
+@synthesize logLocationData, logHeadingData;
+@synthesize logFileNameLocations=_logFileNameLocations;
+@synthesize logFileNameHeadings=_logFileNameHeadings;
 @synthesize isRunningDemo=_isRunningDemo;
 
 + (CLLocationDispatch*) sharedDispatch
@@ -63,7 +64,7 @@
         _locationManager.headingFilter = kCLHeadingFilterNone;
         _locationManager.delegate = self;
         
-        _locationManager.purpose = NSLocalizedStringWithDefaultValue(@"LocationManagerPurpose", nil, [NSBundle mainBundle], @"Indicate to the user why your app needs to use location services.", @"LocationManager purpose");
+        _locationManager.purpose = NSLocalizedStringWithDefaultValue(@"LocationManagerPurpose", nil, [NSBundle mainBundle], @"In order to provide place search and route guidance, StreetWise needs your permission to use Location Services.", @"LocationManager purpose");
         
         _listeners = [[NSMutableArray alloc] initWithCapacity:0];        
     }
@@ -76,13 +77,14 @@
 {
     [self stopDemoRoute];
 //    self.locationManager = nil;
-    self.logFileName = nil;
+    self.logFileNameLocations = nil;
     [_listeners release];
     [_newHeading release];
     [_newLocation release];
     [_oldLocation release];
-    [_logFileName release];
-    [_locations release];
+    [_logFileNameLocations release];
+    [_locations release]; _locations=nil;
+    [_headings release]; _headings=nil;
     [super dealloc];
 }
 
@@ -154,23 +156,10 @@
             _locations = [[NSMutableArray alloc] initWithCapacity:256];
         }
         // empty cache if it is full
-        if ([_locations count] > kMaxCachedLocations) {
-            NSRange range; range.location = [_locations count] - 10; range.length = 10;
-            NSIndexSet *set = [NSIndexSet indexSetWithIndexesInRange:range];
-            NSArray *lastLocations = [_locations objectsAtIndexes:set];
-            [_locations removeAllObjects];
-            [_locations addObjectsFromArray:lastLocations]; 
+        if ([_locations count] > kLogCacheSize) {
+            [self flushLogCache:kLocationsCache];
         }
-        // add the new location to the cache
         [_locations addObject:newLocation];
-        // create log file name
-        if (!_logFileName) {
-            _logFileName = [[[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0] stringByAppendingPathComponent:@"locations.archive"] retain];
-        }
-        //archive the locations cache
-        [NSKeyedArchiver archiveRootObject:_locations toFile:_logFileName];
-
-
     }
     
     [_oldLocation release];
@@ -201,6 +190,19 @@
 
 - (void)locationManager:(CLLocationManager *)manager didUpdateHeading:(CLHeading *)newHeading
 {
+    if (self.logHeadingData && !self.isRunningDemo) {
+        // create locations cache
+        if (!_headings) {
+            _headings = [[NSMutableArray alloc] initWithCapacity:256];
+        }
+        // empty cache if it is full
+        if ([_headings count] > kLogCacheSize) {
+            [self flushLogCache:kHeadingsCache]; 
+        }
+        // add the new location to the cache
+        [_headings addObject:newHeading];
+    }
+
     [_newHeading release];
     _newHeading = [newHeading retain];
     
@@ -222,6 +224,39 @@
         }
     }];
   
+}
+
+- (void) flushLogCache:(CLLocationDispatchLogCacheType)cacheType
+{    
+    if ( cacheType == kLocationsCache) {
+        if (!_logFileNameLocations) {
+            // create log file name
+            _logFileNameLocations = [[[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0] stringByAppendingPathComponent:@"locations.archive"] retain];
+        }
+        
+        NSMutableArray *allLocations = [NSKeyedUnarchiver unarchiveObjectWithFile:_logFileNameLocations];
+        [allLocations addObjectsFromArray:_locations];
+        [NSKeyedArchiver archiveRootObject:allLocations toFile:_logFileNameLocations];
+        
+        // clean locations cache
+        [_locations removeAllObjects];
+    }
+
+    else if( cacheType == kHeadingsCache){
+        if (!_logFileNameHeadings) {
+            // create log file name
+            _logFileNameHeadings = [[[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0] stringByAppendingPathComponent:@"headings.archive"] retain];
+        }
+
+        NSMutableArray *allHeadings = [NSKeyedUnarchiver unarchiveObjectWithFile:_logFileNameHeadings];
+        [allHeadings addObjectsFromArray:_headings];
+        [NSKeyedArchiver archiveRootObject:allHeadings toFile:_logFileNameHeadings];
+                
+        // clean headings cache
+        [_headings removeAllObjects];
+ 
+    }
+         
 }
 
 #pragma mark - Dispatching Dead Reckoning Locations
