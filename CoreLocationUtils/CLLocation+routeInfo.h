@@ -7,7 +7,7 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "CMRouteInstruction.h"
+#import <CoreLocation/CoreLocation.h>
 
 
 #define kFarAway                                99999   //KM
