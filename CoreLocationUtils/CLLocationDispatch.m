@@ -150,10 +150,10 @@
 - (void)locationManager:(CLLocationManager *)manager didUpdateToLocation:(CLLocation *)newLocation fromLocation:(CLLocation *)oldLocation
 {
     // cache & log the new location if we're not running a demo 
-    if (self.logLocationData && !self.isRunningDemo) {
+    if (self.logLocationData /*&& !self.isRunningDemo*/) {
         // create locations cache
         if (!_locations) {
-            _locations = [[NSMutableArray alloc] initWithCapacity:256];
+            _locations = [[NSMutableArray alloc] initWithCapacity:10];
         }
         // empty cache if it is full
         if ([_locations count] > kLogCacheSize) {
@@ -328,18 +328,18 @@
 - (void) runDemoFromLogFile : (NSString*) logFileName 
 {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    [_locations release];
-    _locations = [NSKeyedUnarchiver unarchiveObjectWithFile:logFileName];
-    NSDate *logStartDate = ((CLLocation*)[_locations objectAtIndex:_startIndexForPlayingLog]).timestamp;
+    
+    _loggedLocations = [NSKeyedUnarchiver unarchiveObjectWithFile:logFileName];
+    NSDate *logStartDate = ((CLLocation*)[_loggedLocations objectAtIndex:_startIndexForPlayingLog]).timestamp;
     playLogStartDate = [NSDate dateWithTimeIntervalSinceNow:0];
     NSTimeInterval elapsedTime, prevElapsedTime=0;
-    NSInteger count = [_locations count] - _startIndexForPlayingLog;
+    NSInteger count = [_loggedLocations count] - _startIndexForPlayingLog;
     for (int i=0; i<count; i++) {
         
         // calc the time to sleep until the next location update
         NSInteger index = i+_startIndexForPlayingLog;
-        CLLocation *location = [_locations objectAtIndex:index];
-        CLLocation *nextLocation = i<count-1?[_locations objectAtIndex:index+1]:nil;
+        CLLocation *location = [_loggedLocations objectAtIndex:index];
+        CLLocation *nextLocation = i<count-1?[_loggedLocations objectAtIndex:index+1]:nil;
         elapsedTime = [nextLocation.timestamp timeIntervalSinceDate:logStartDate];
         NSTimeInterval secs = elapsedTime - prevElapsedTime;
         prevElapsedTime = elapsedTime;
@@ -347,15 +347,15 @@
         // set location's timestamp to now (as in real-time location updates). This is required to keep all mechanisms 
         // which may rely on the timestamp of the location to keep the same logic as in real-time location updates (e.g. dead reckoing). 
         CLLocation *locationNow = [[[CLLocation alloc] initWithCoordinate:location.coordinate altitude:location.altitude horizontalAccuracy:location.horizontalAccuracy verticalAccuracy:location.verticalAccuracy course:location.course speed:location.speed timestamp:[NSDate dateWithTimeIntervalSinceNow:0]] autorelease];
-        [_locations removeObjectAtIndex:index];
-        [_locations insertObject:locationNow atIndex:index];
+        [_loggedLocations removeObjectAtIndex:index];
+        [_loggedLocations insertObject:locationNow atIndex:index];
         
         // dispatch the new location at index i
         [self performSelectorOnMainThread:@selector(dispatchLocationUpdateOnMainThread:) withObject:[NSNumber numberWithInt:i] waitUntilDone:YES];
 
         // in case newLocation has been modified (speed/course), retain it. 
-        [_locations removeObjectAtIndex:index];
-        [_locations insertObject:_newLocation atIndex:index];
+        [_loggedLocations removeObjectAtIndex:index];
+        [_loggedLocations insertObject:_newLocation atIndex:index];
         
         // sleep
         //NSLog(@"runDemoFromLogFile: going to sleep %f secs until next location update.", secs);
@@ -369,8 +369,8 @@
 {
     NSInteger i = [locationIndex intValue];
     NSInteger index = i+_startIndexForPlayingLog;
-    CLLocation *currLocation = [_locations objectAtIndex:index];
-    CLLocation *prevLocation = i>0?[_locations objectAtIndex:index-1]:nil;
+    CLLocation *currLocation = [_loggedLocations objectAtIndex:index];
+    CLLocation *prevLocation = i>0?[_loggedLocations objectAtIndex:index-1]:nil;
     [self locationManager:_locationManager didUpdateToLocation:currLocation fromLocation:prevLocation];    
 }
 

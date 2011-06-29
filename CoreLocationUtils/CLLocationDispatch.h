@@ -29,7 +29,7 @@
 
 // max objects to cache in memory while logging. 
 // When this limit is reached, the cache is flushed into the log file, and the in-memory cache is emptied. 
-#define kLogCacheSize 512
+#define kLogCacheSize 16
 
 typedef enum{
     kLocationsCache,
@@ -63,6 +63,7 @@ typedef enum{
     // logging location & heading data
     NSString *_logFileNameLocations;
     NSString *_logFileNameHeadings;
+    NSMutableArray *_loggedLocations;
     NSMutableArray *_locations;
     NSMutableArray *_headings;
     NSInteger _startIndexForPlayingLog;
