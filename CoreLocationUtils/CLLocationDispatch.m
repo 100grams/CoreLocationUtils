@@ -235,7 +235,12 @@
         }
         
         NSMutableArray *allLocations = [NSKeyedUnarchiver unarchiveObjectWithFile:_logFileNameLocations];
-        [allLocations addObjectsFromArray:_locations];
+        if (!allLocations) {
+            allLocations = [NSArray arrayWithArray:_locations];
+        }
+        else{
+            [allLocations addObjectsFromArray:_locations];            
+        }
         [NSKeyedArchiver archiveRootObject:allLocations toFile:_logFileNameLocations];
         
         // clean locations cache
@@ -249,7 +254,12 @@
         }
 
         NSMutableArray *allHeadings = [NSKeyedUnarchiver unarchiveObjectWithFile:_logFileNameHeadings];
-        [allHeadings addObjectsFromArray:_headings];
+        if (!allHeadings) {
+            allHeadings = [NSArray arrayWithArray:_headings];
+        }
+        else{
+            [allHeadings addObjectsFromArray:_headings];            
+        }
         [NSKeyedArchiver archiveRootObject:allHeadings toFile:_logFileNameHeadings];
                 
         // clean headings cache
