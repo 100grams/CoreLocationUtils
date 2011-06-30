@@ -150,7 +150,7 @@
 - (void)locationManager:(CLLocationManager *)manager didUpdateToLocation:(CLLocation *)newLocation fromLocation:(CLLocation *)oldLocation
 {
     // cache & log the new location if we're not running a demo 
-    if (self.logLocationData /*&& !self.isRunningDemo*/) {
+    if (self.logLocationData && !self.isRunningDemo) {
         // create locations cache
         if (!_locations) {
             _locations = [[NSMutableArray alloc] initWithCapacity:10];
