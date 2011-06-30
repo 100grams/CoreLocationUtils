@@ -56,12 +56,12 @@ Dead Reckoning generates location updates at fixed time intervals, defined by <c
 
 - After <code>CLLocationDeadReckoning</code> starts, it listens to CoreLocation updates and generates new DR locations after no location updates are received from CoreLocation for a predefined time interval, defined by <code>kDeadReckoningInterval</code>.
 
-- You register for DR location updates by calling the <code>addListener</code> method of <code>CLLocationDispatch</code>. You must also respond to the <code>CLLocationDeadReckoningHandler</code> protocol messages, which will be sent to your by CLLocationDispatch. 
+- You register for DR location updates by calling the <code>addListener</code> method of <code>CLLocationDispatch</code>. You must also respond to the <code>CLLocationDeadReckoningHandler</code> protocol messages, which will be sent to your listener by CLLocationDispatch. 
 
  
 ## How to use ##
 
-1. Fork this repo
+1. Clone this repo
 2. Add CoreLocationUtils folder to your project.
 2. Link with CoreLocation framework. 
 
