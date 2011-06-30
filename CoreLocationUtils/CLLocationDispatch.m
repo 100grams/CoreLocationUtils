@@ -236,7 +236,7 @@
         
         NSMutableArray *allLocations = [NSKeyedUnarchiver unarchiveObjectWithFile:_logFileNameLocations];
         if (!allLocations) {
-            allLocations = [NSArray arrayWithArray:_locations];
+            allLocations = [NSMutableArray arrayWithArray:_locations];
         }
         else{
             [allLocations addObjectsFromArray:_locations];            
@@ -255,7 +255,7 @@
 
         NSMutableArray *allHeadings = [NSKeyedUnarchiver unarchiveObjectWithFile:_logFileNameHeadings];
         if (!allHeadings) {
-            allHeadings = [NSArray arrayWithArray:_headings];
+            allHeadings = [NSMutableArray arrayWithArray:_headings];
         }
         else{
             [allHeadings addObjectsFromArray:_headings];            
