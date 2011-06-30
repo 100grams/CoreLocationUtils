@@ -29,7 +29,7 @@
 
 // max objects to cache in memory while logging. 
 // When this limit is reached, the cache is flushed into the log file, and the in-memory cache is emptied. 
-#define kLogCacheSize 16
+#define kLogCacheSize 512
 
 typedef enum{
     kLocationsCache,

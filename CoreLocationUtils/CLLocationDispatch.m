@@ -234,7 +234,7 @@
             _logFileNameLocations = [[[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0] stringByAppendingPathComponent:@"locations.archive"] retain];
         }
         
-        NSMutableArray *allLocations = [NSKeyedUnarchiver unarchiveObjectWithFile:_logFileNameLocations];
+        NSMutableArray *allLocations = [NSMutableArray arrayWithArray:[NSKeyedUnarchiver unarchiveObjectWithFile:_logFileNameLocations]];
         if (!allLocations) {
             allLocations = [NSMutableArray arrayWithArray:_locations];
         }
@@ -253,7 +253,7 @@
             _logFileNameHeadings = [[[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0] stringByAppendingPathComponent:@"headings.archive"] retain];
         }
 
-        NSMutableArray *allHeadings = [NSKeyedUnarchiver unarchiveObjectWithFile:_logFileNameHeadings];
+        NSMutableArray *allHeadings = [NSMutableArray arrayWithArray:[NSKeyedUnarchiver unarchiveObjectWithFile:_logFileNameHeadings]];
         if (!allHeadings) {
             allHeadings = [NSMutableArray arrayWithArray:_headings];
         }
