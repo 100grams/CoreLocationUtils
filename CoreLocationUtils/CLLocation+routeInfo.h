@@ -10,7 +10,7 @@
 #import <CoreLocation/CoreLocation.h>
 
 
-#define kFarAway                                99999   //KM
+#define kFarAway                                9999999 //9,999 km
 
 
 // --------------------------------------------------------------------------------
