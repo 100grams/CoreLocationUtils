@@ -38,6 +38,9 @@
 @synthesize logFileNameLocations=_logFileNameLocations;
 @synthesize logFileNameHeadings=_logFileNameHeadings;
 @synthesize isRunningDemo=_isRunningDemo;
+@synthesize locations=_locations;
+@synthesize headings=_headings;
+
 
 + (CLLocationDispatch*) sharedDispatch
 {
@@ -60,19 +63,20 @@
         _locationManager = [[CLLocationManager alloc] init];
 
         // set app-specific locationManager properties
-        _locationManager.desiredAccuracy = kCLLocationAccuracyBest;
+        _locationManager.desiredAccuracy = kCLLocationAccuracyBestForNavigation;
         _locationManager.headingFilter = kCLHeadingFilterNone;
         _locationManager.delegate = self;
         
         _locationManager.purpose = NSLocalizedStringWithDefaultValue(@"LocationManagerPurpose", nil, [NSBundle mainBundle], @"In order to provide place search and route guidance, StreetWise needs your permission to use Location Services.", @"LocationManager purpose");
         
         _listeners = [[NSMutableArray alloc] initWithCapacity:0];        
+        _isRunningDemo = NO;
     }
     
     return self;
 }
 
-
+#if !__has_feature(objc_arc)
 - (void) dealloc
 {
     [self stopDemoRoute];
@@ -87,6 +91,7 @@
     [_headings release]; _headings=nil;
     [super dealloc];
 }
+#endif
 
 
 #pragma mark - Location Updates
@@ -99,12 +104,22 @@
     NSString *reqSysVer = @"4.2";
     NSString *currSysVer = [[UIDevice currentDevice] systemVersion];
     if ([currSysVer compare:reqSysVer options:NSNumericSearch] != NSOrderedAscending){
-        authorized = ([CLLocationManager authorizationStatus] == kCLAuthorizationStatusAuthorized);
+        authorized = ([CLLocationManager authorizationStatus] != kCLAuthorizationStatusDenied);
     }
 
     if (!self.isRunningDemo && enabled && authorized) {
+
+        // create locations cache
+        if (!_locations) {
+            _locations = [[NSMutableArray alloc] initWithCapacity:10];
+        }
+        if (!_headings) {
+            _headings = [[NSMutableArray alloc] initWithCapacity:256];
+        }
+
         [_locationManager startUpdatingLocation];
-        [_locationManager startUpdatingHeading]; 
+        [_locationManager startUpdatingHeading];
+        
     }
     else{
         NSLog(@"Warning: attempt to start real location updates while demo is running has been ignored. Please stop the demo first.");
@@ -119,9 +134,19 @@
 {
     [_locationManager stopUpdatingHeading];
     [_locationManager stopUpdatingLocation];
-    [_newLocation release]; _newLocation = nil;
-    [_oldLocation release]; _oldLocation = nil;
-    [_newHeading release]; _newHeading  = nil;
+    Release(_newLocation); _newLocation = nil;
+    Release(_oldLocation); _oldLocation = nil;
+    Release(_newHeading); _newHeading  = nil;
+    
+    // empty in-memory cache
+    if (logHeadingData) {
+        [self flushLogCache:kHeadingsCache]; 
+    }
+    if (logLocationData) {
+        [self flushLogCache:kLocationsCache];
+    }
+    Release(_locations); _locations = nil;
+    Release(_headings); _headings = nil;
 }
 
 - (void) addListener : (id<CLLocationManagerDelegate>) listener; 
@@ -151,10 +176,6 @@
 {
     // cache & log the new location if we're not running a demo 
     if (self.logLocationData && !self.isRunningDemo) {
-        // create locations cache
-        if (!_locations) {
-            _locations = [[NSMutableArray alloc] initWithCapacity:10];
-        }
         // empty cache if it is full
         if ([_locations count] > kLogCacheSize) {
             [self flushLogCache:kLocationsCache];
@@ -162,8 +183,8 @@
         [_locations addObject:newLocation];
     }
     
-    [_oldLocation release];
-    _oldLocation = [oldLocation retain];
+    Release(_oldLocation);
+    _oldLocation = Retain(oldLocation);
     
     // verify newLocation has speed and course info, required for supporting dead-reckoning.
     CLLocationSpeed speed = newLocation.speed;
@@ -174,7 +195,7 @@
     if (course <= 0 && self.oldLocation) {
         course = [self.oldLocation directionToLocation:newLocation];
     }
-    [_newLocation release];
+    Release(_newLocation);
     _newLocation = [[CLLocation alloc] initWithCoordinate:newLocation.coordinate altitude:newLocation.altitude horizontalAccuracy:newLocation.horizontalAccuracy verticalAccuracy:newLocation.verticalAccuracy course:course speed:speed timestamp:newLocation.timestamp];
 
     //NSLog(@"new location: %@", self.newLocation);
@@ -192,9 +213,6 @@
 {
     if (self.logHeadingData && !self.isRunningDemo) {
         // create locations cache
-        if (!_headings) {
-            _headings = [[NSMutableArray alloc] initWithCapacity:256];
-        }
         // empty cache if it is full
         if ([_headings count] > kLogCacheSize) {
             [self flushLogCache:kHeadingsCache]; 
@@ -203,8 +221,8 @@
         [_headings addObject:newHeading];
     }
 
-    [_newHeading release];
-    _newHeading = [newHeading retain];
+    Release(_newHeading);
+    _newHeading = Retain(newHeading);
     
     [_listeners enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
         id<CLLocationManagerDelegate> listener = obj;
@@ -231,7 +249,7 @@
     if ( cacheType == kLocationsCache) {
         if (!_logFileNameLocations) {
             // create log file name
-            _logFileNameLocations = [[[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0] stringByAppendingPathComponent:@"locations.archive"] retain];
+            _logFileNameLocations = Retain([[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0] stringByAppendingPathComponent:@"locations.archive"]);
         }
         
         NSMutableArray *allLocations = [NSMutableArray arrayWithArray:[NSKeyedUnarchiver unarchiveObjectWithFile:_logFileNameLocations]];
@@ -250,7 +268,7 @@
     else if( cacheType == kHeadingsCache){
         if (!_logFileNameHeadings) {
             // create log file name
-            _logFileNameHeadings = [[[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0] stringByAppendingPathComponent:@"headings.archive"] retain];
+            _logFileNameHeadings = Retain([[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0] stringByAppendingPathComponent:@"headings.archive"]);
         }
 
         NSMutableArray *allHeadings = [NSMutableArray arrayWithArray:[NSKeyedUnarchiver unarchiveObjectWithFile:_logFileNameHeadings]];
@@ -327,42 +345,46 @@
 
 - (void) runDemoFromLogFile : (NSString*) logFileName 
 {
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    
-    _loggedLocations = [NSKeyedUnarchiver unarchiveObjectWithFile:logFileName];
-    NSDate *logStartDate = ((CLLocation*)[_loggedLocations objectAtIndex:_startIndexForPlayingLog]).timestamp;
-    playLogStartDate = [NSDate dateWithTimeIntervalSinceNow:0];
-    NSTimeInterval elapsedTime, prevElapsedTime=0;
-    NSInteger count = [_loggedLocations count] - _startIndexForPlayingLog;
-    for (int i=0; i<count; i++) {
+//    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+  
+    @autoreleasepool {
         
-        // calc the time to sleep until the next location update
-        NSInteger index = i+_startIndexForPlayingLog;
-        CLLocation *location = [_loggedLocations objectAtIndex:index];
-        CLLocation *nextLocation = i<count-1?[_loggedLocations objectAtIndex:index+1]:nil;
-        elapsedTime = [nextLocation.timestamp timeIntervalSinceDate:logStartDate];
-        NSTimeInterval secs = elapsedTime - prevElapsedTime;
-        prevElapsedTime = elapsedTime;
-        
-        // set location's timestamp to now (as in real-time location updates). This is required to keep all mechanisms 
-        // which may rely on the timestamp of the location to keep the same logic as in real-time location updates (e.g. dead reckoing). 
-        CLLocation *locationNow = [[[CLLocation alloc] initWithCoordinate:location.coordinate altitude:location.altitude horizontalAccuracy:location.horizontalAccuracy verticalAccuracy:location.verticalAccuracy course:location.course speed:location.speed timestamp:[NSDate dateWithTimeIntervalSinceNow:0]] autorelease];
-        [_loggedLocations removeObjectAtIndex:index];
-        [_loggedLocations insertObject:locationNow atIndex:index];
-        
-        // dispatch the new location at index i
-        [self performSelectorOnMainThread:@selector(dispatchLocationUpdateOnMainThread:) withObject:[NSNumber numberWithInt:i] waitUntilDone:YES];
-
-        // in case newLocation has been modified (speed/course), retain it. 
-        [_loggedLocations removeObjectAtIndex:index];
-        [_loggedLocations insertObject:_newLocation atIndex:index];
-        
-        // sleep
-        //NSLog(@"runDemoFromLogFile: going to sleep %f secs until next location update.", secs);
-        usleep(secs*1000000);
-        
+        _loggedLocations = [NSKeyedUnarchiver unarchiveObjectWithFile:logFileName];
+        NSDate *logStartDate = ((CLLocation*)[_loggedLocations objectAtIndex:_startIndexForPlayingLog]).timestamp;
+        playLogStartDate = [NSDate dateWithTimeIntervalSinceNow:0];
+        NSTimeInterval elapsedTime, prevElapsedTime=0;
+        NSInteger count = [_loggedLocations count] - _startIndexForPlayingLog;
+        for (int i=0; i<count; i++) {
+            
+            // calc the time to sleep until the next location update
+            NSInteger index = i+_startIndexForPlayingLog;
+            CLLocation *location = [_loggedLocations objectAtIndex:index];
+            CLLocation *nextLocation = i<count-1?[_loggedLocations objectAtIndex:index+1]:nil;
+            elapsedTime = [nextLocation.timestamp timeIntervalSinceDate:logStartDate];
+            NSTimeInterval secs = elapsedTime - prevElapsedTime;
+            prevElapsedTime = elapsedTime;
+            
+            // set location's timestamp to now (as in real-time location updates). This is required to keep all mechanisms 
+            // which may rely on the timestamp of the location to keep the same logic as in real-time location updates (e.g. dead reckoing). 
+            CLLocation *locationNow = [[CLLocation alloc] initWithCoordinate:location.coordinate altitude:location.altitude horizontalAccuracy:location.horizontalAccuracy verticalAccuracy:location.verticalAccuracy course:location.course speed:location.speed timestamp:[NSDate dateWithTimeIntervalSinceNow:0]];
+            [_loggedLocations removeObjectAtIndex:index];
+            [_loggedLocations insertObject:locationNow atIndex:index];
+            Release(locationNow);
+            
+            // dispatch the new location at index i
+            [self performSelectorOnMainThread:@selector(dispatchLocationUpdateOnMainThread:) withObject:[NSNumber numberWithInt:i] waitUntilDone:YES];
+            
+            // in case newLocation has been modified (speed/course), retain it. 
+            [_loggedLocations removeObjectAtIndex:index];
+            [_loggedLocations insertObject:_newLocation atIndex:index];
+            
+            // sleep
+            //NSLog(@"runDemoFromLogFile: going to sleep %f secs until next location update.", secs);
+            usleep(secs*1000000);
+            
+        }
     }
-    [pool drain];
+//    [pool drain];
 }
 
 - (void) dispatchLocationUpdateOnMainThread:(NSNumber*)locationIndex
@@ -380,9 +402,9 @@
     if (_demoTimer) {
         
         [_demoTimer invalidate];
-        [_locationEnumerator release];
+        Release(_locationEnumerator);
         _locationEnumerator = nil;
-        [_demoTimer release];
+        Release(_demoTimer);
         _demoTimer = nil;
         NSLog(@"Route demo stopped.");
         
@@ -398,12 +420,12 @@
     if(!_locationEnumerator){
         id<HGRouteProvider> routeProvider = [[theTimer userInfo] valueForKey:@"routeProvider"];
         if (routeProvider) {
-            _locationEnumerator = [[routeProvider locationEnumerator] retain];
+            _locationEnumerator = Retain([routeProvider locationEnumerator]);
         }
     }
     
     CLLocation *prevLocation = _newLocation;
-    CLLocation *currLocation = [[_locationEnumerator nextObject] retain];
+    CLLocation *currLocation = Retain([_locationEnumerator nextObject]);
     
     if (currLocation) {
         [self locationManager:_locationManager didUpdateToLocation:currLocation fromLocation:prevLocation];

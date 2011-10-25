@@ -24,6 +24,7 @@
 //	THE SOFTWARE.
 //
 
+#import "CLUtilsDefines.h"
 #import "CLLocation+measuring.h"
 #include <math.h> // For PI
 
@@ -34,8 +35,10 @@
 
 + (CLLocationDistance) distanceFromCoordinate:(CLLocationCoordinate2D)fromCoord toCoordinate:(CLLocationCoordinate2D) toCoord
 {
-    CLLocation *location = [[[CLLocation alloc] initWithLatitude:fromCoord.latitude longitude:fromCoord.longitude] autorelease];
-    return [location distanceFromCoordinate:toCoord];
+    CLLocation *location = [[CLLocation alloc] initWithLatitude:fromCoord.latitude longitude:fromCoord.longitude];
+    CLLocationDistance dist = [location distanceFromCoordinate:toCoord];
+    Release(location);
+    return dist;
 }
 
 - (CLLocationDistance) distanceFromCoordinate:(CLLocationCoordinate2D) fromCoord;
@@ -223,9 +226,11 @@
     CLLocationCoordinate2D intCoord;
     intCoord.latitude = start.coordinate.latitude + U * ( end.coordinate.latitude - start.coordinate.latitude );
     intCoord.longitude = start.coordinate.longitude + U * ( end.coordinate.longitude - start.coordinate.longitude );
-    *intersection = [[[CLLocation alloc] initWithLatitude:intCoord.latitude longitude:intCoord.longitude] autorelease];
+    *intersection = [[CLLocation alloc] initWithLatitude:intCoord.latitude longitude:intCoord.longitude];
         
     double distance = [self distanceFromLocation:*intersection];
+    
+    Release(intersection);
     
     return distance;    
 }

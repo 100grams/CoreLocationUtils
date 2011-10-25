@@ -36,6 +36,7 @@
     return self;
 }
 
+#if !__has_feature(objc_arc)
 - (void) dealloc
 {
     [_locationsTimer invalidate]; _locationsTimer = nil;
@@ -43,6 +44,7 @@
     self.followRoute = nil;
     [super dealloc];
 }
+#endif
 
 - (void) startWithRoute:(NSArray*)route;
 {
@@ -130,7 +132,7 @@
             else{
                 
                 // dead-reckon a new soft location from calculated speed and course
-                CLLocation *newDR = [[_newLocation newLocationAfterMovingAtSpeed:adjustedSpeed duration:delta direction:_newLocation.course] autorelease];
+                CLLocation *newDR = [_newLocation newLocationAfterMovingAtSpeed:adjustedSpeed duration:delta direction:_newLocation.course];
                 CLLocation *nearestRouteNode, *nearestLocationOnRoute;
                 NSInteger nodeIndexAfter;
                 CLLocationDistance distance = [newDR distanceFromRoute:self.followRoute nearestNodeFound:&nearestRouteNode nearestLocationOnRoute:&nearestLocationOnRoute nodeIndexAfterIntersection:&nodeIndexAfter];
@@ -142,7 +144,7 @@
                 else{
                     // finally create the route-matched DR location. 
                     // Note: taking the approximate course from the nearest route node
-                    CLLocation *routeMatchedDR = [[[CLLocation alloc] initWithCoordinate:nearestLocationOnRoute.coordinate altitude:newDR.altitude horizontalAccuracy:newDR.horizontalAccuracy verticalAccuracy:newDR.verticalAccuracy course:nearestRouteNode.course speed:newDR.speed timestamp:newDR.timestamp] autorelease] ;
+                    CLLocation *routeMatchedDR = [[CLLocation alloc] initWithCoordinate:nearestLocationOnRoute.coordinate altitude:newDR.altitude horizontalAccuracy:newDR.horizontalAccuracy verticalAccuracy:newDR.verticalAccuracy course:nearestRouteNode.course speed:newDR.speed timestamp:newDR.timestamp] ;
                     
                     [_drLocations addObject:routeMatchedDR];
                     NSLog(@"dead-reckoning: %@", routeMatchedDR);        
@@ -150,7 +152,10 @@
                     
                     // report the DR location 
                     [[NSNotificationCenter defaultCenter] postNotificationName:kNotificationNewDRLocation object:self userInfo:nil];
+                    
+                    Release(routeMatchedDR);
                 }
+                Release(newDR);
             }
         }
         
@@ -165,10 +170,15 @@
 
 - (void) locationManager:(CLLocationManager *)manager didUpdateToLocation:(CLLocation *)newLocation fromLocation:(CLLocation *)oldLocation
 {
+#if !__has_feature(objc_arc)
     [_oldLocation release];
     _oldLocation = [oldLocation retain];
     [_newLocation release];
     _newLocation = [newLocation retain];
+#else
+    _oldLocation = oldLocation;
+    _newLocation = newLocation;
+#endif
     
     [_drLocations removeAllObjects];
 }

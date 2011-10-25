@@ -51,7 +51,7 @@
 
 // the array of DR locations which have been generated since the last hard-location was received. 
 // this array is being reset whenever a new hard-location is received. 
-@property (nonatomic, retain, readonly) NSArray *drLocations;
+@property (nonatomic, strong, readonly) NSArray *drLocations;
 
 // route to follow. Dead-reckoning will generate locations along this route. This is a required property. Setting it to nil stops DR automatically. 
 @property (nonatomic, copy) NSArray *followRoute;

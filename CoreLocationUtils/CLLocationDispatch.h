@@ -26,10 +26,11 @@
 
 #import <Foundation/Foundation.h>
 #import <CoreLocation/CoreLocation.h>
+#import "CLUtilsDefines.h"
 
 // max objects to cache in memory while logging. 
 // When this limit is reached, the cache is flushed into the log file, and the in-memory cache is emptied. 
-#define kLogCacheSize 512
+#define kLogCacheSize 1024
 
 typedef enum{
     kLocationsCache,
@@ -75,14 +76,16 @@ typedef enum{
 + (CLLocationDispatch*) sharedDispatch;
 
 // direct access to location manager. Use this property to tweak location/heading accuracy etc.
-@property (nonatomic, retain) IBOutlet CLLocationManager *locationManager; 
+@property (nonatomic, strong) IBOutlet CLLocationManager *locationManager; 
 
-// location data, wraps real and demo locations. If a demo is running live location updates are disabled 
-// and the locations returned are read from the route demo provider. 
-@property (nonatomic, retain, readonly) CLLocation *oldLocation;
-@property (nonatomic, retain, readonly) CLLocation *newLocation;
-@property (nonatomic, retain, readonly) CLHeading *newHeading;
-
+// location data, wraps real and demo locations. If a demo is running live location updates are disabled and the locations returned are read from the route demo provider. 
+@property (nonatomic, strong, readonly) CLLocation *oldLocation;
+@property (nonatomic, strong, readonly, getter=getNewLocation) CLLocation *newLocation;
+@property (nonatomic, strong, readonly, getter=getNewHeading) CLHeading *newHeading;
+// all locations receieved since _start_. This collection is reset when _stop_ is called. 
+@property (nonatomic, strong, readonly) NSArray *locations;
+// all headings receieved since _start_. This collection is reset when _stop_ is called. 
+@property (nonatomic, strong, readonly) NSArray *headings;
 
 // start/stop location and heading updates from CoreLocation
 - (void) start;
@@ -109,8 +112,8 @@ typedef enum{
 @property (nonatomic, assign) BOOL logHeadingData;
 
 // archive file names. If logLocationData and/or logHeadingData is set to YES and this property has not been set, it defaults to ./Documents/locations.archive and/or ./Documents/headings.archive respectively.
-@property (nonatomic, retain) NSString *logFileNameLocations; 
-@property (nonatomic, retain) NSString *logFileNameHeadings; 
+@property (nonatomic, strong) NSString *logFileNameLocations; 
+@property (nonatomic, strong) NSString *logFileNameHeadings; 
 
 - (void) flushLogCache:(CLLocationDispatchLogCacheType)cacheType; //use either kLocationsCache or kHeadingsCache
 
