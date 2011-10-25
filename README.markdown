@@ -1,6 +1,7 @@
 # Core Location Utilities#
 
 An Objective-C library with tools and extensions for iOS CoreLocation. 
+**Update: added support for iOS5 SDK and ARC compatibility**
 
 ## Features ##
 
