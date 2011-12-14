@@ -65,6 +65,11 @@ typedef struct {
 + (CLLocationDistance) distanceFromCoordinate:(CLLocationCoordinate2D)fromCoord toCoordinate:(CLLocationCoordinate2D) toCoord;
 - (CLLocationDistance) distanceFromCoordinate:(CLLocationCoordinate2D) toCoord;
 
+// finds a new location on a straight line towards a second location, given distance in meters.
+- (CLLocation*) newLocationAtDistance:(CLLocationDistance)distance toLocation:(CLLocation*)destination;
+// identical to newLocationAtDistance:toLocation: but using coordinates
++ (CLLocationCoordinate2D) coordinateAtDistance:(CLLocationDistance)distance fromCoordinate:(CLLocationCoordinate2D)coord1 toCoordinate:(CLLocationCoordinate2D)coord2;
+
 // returns the (2D) minimum distance from a line which connects two other locations. The projected location on that line is returned in intersection param. 
 - (CLLocationDistance) distanceFromLineWithStartLocation:(CLLocation*) start endLocation:(CLLocation*) end intersection : (CLLocation**) intersection;
 

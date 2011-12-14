@@ -12,11 +12,11 @@
 
 // ARC conditions
 #if !__has_feature(objc_arc)
-#define Release(id) [id release]
-#define Retain(id) [id retain]
+#define Release(obj) [obj release]
+#define Retain(obj) [obj retain]
 #else 
-#define Release(id)
-#define Retain(id) id
+#define Release(obj)
+#define Retain(obj) obj
 #endif
 
 
