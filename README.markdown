@@ -75,3 +75,5 @@ CoreLocationUtils library is released under MIT License.
 Please contribute your improvements and suggestions, and raise issues if you spot them.  
 
 Thanks!  
+
+[![endorse](https://api.coderwall.com/rubnov/endorsecount.png)](https://coderwall.com/rubnov)
